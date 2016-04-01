@@ -160,6 +160,14 @@ class Path(object):
     def _rebuild(self, root_path):
         for child in self.children.values():
             child._rebuild(root_path)
+    def copy(self, root_path=None):
+        kwargs = self.serialize()
+        kwargs['is_serialized'] = True
+        new_obj = self.__class__(**kwargs)
+        if root_path is not None:
+            p = self.relative_path
+            new_obj.path = os.path.join(root_path, p)
+        return new_obj
     def __repr__(self):
         s = '<{0}: {1} at {2:#x}>'
         return s.format(self.__class__.__name__, self, id(self))
