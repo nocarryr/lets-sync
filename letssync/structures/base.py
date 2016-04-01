@@ -168,6 +168,18 @@ class Path(object):
             p = self.relative_path
             new_obj.path = os.path.join(root_path, p)
         return new_obj
+    def is_equal(self, other, recursive=True):
+        if self != other:
+            return False
+        if recursive:
+            for key, child in self.children.items():
+                other_child = other.children.get(key)
+                if other_child is None:
+                    return False
+                r = child.is_equal(other_child, recursive=True)
+                if not r:
+                    return False
+        return True
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False
