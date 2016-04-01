@@ -61,6 +61,18 @@ class AccountFile(FileObjBase):
         super(AccountFile, self).__init__(**kwargs)
         if self.data is None:
             self.data = json.loads(self.content)
+    def _get_diff(self, other, reverse=False):
+        d = super(AccountFile, self)._get_diff(other, reverse)
+        if other is None:
+            return d
+        selfkey = 'self'
+        othkey = 'other'
+        if reverse:
+            selfkey = 'other'
+            othkey = 'self'
+        if self.data != other.data:
+            d['data'] = {selfkey:self.data, othkey:other.data}
+        return d
     def __eq__(self, other):
         if not isinstance(other, AccountFile):
             return False

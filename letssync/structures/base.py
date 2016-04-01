@@ -1,5 +1,6 @@
 import os
 import json
+import difflib
 
 class Path(object):
     serialize_attrs = ['path', 'mode', 'id', 'modified']
@@ -168,6 +169,40 @@ class Path(object):
             p = self.relative_path
             new_obj.path = os.path.join(root_path, p)
         return new_obj
+    def get_diff(self, other, reverse=False):
+        if self == other:
+            diff = None
+        else:
+            diff = self._get_diff(other)
+        d = {self.relative_path: diff}
+        for key, child in self.children.items():
+            if other is None:
+                other_child = None
+            else:
+                other_child = other.children.get(key)
+            d.update(child.get_diff(other_child, reverse=reverse))
+        if other is not None:
+            for key, other_child in other.children.items():
+                if key in self.children:
+                    continue
+                d.update(other_child.get_diff(None, reverse=True))
+        return d
+    def _get_diff(self, other, reverse=False):
+        selfkey = 'self'
+        othkey = 'other'
+        if reverse:
+            selfkey = 'other'
+            othkey = 'self'
+        d = {}
+        if other is None:
+            for key, val in self._serialize().items():
+                d[key] = {selfkey: val, othkey:None}
+            return d
+        self_p = self.relative_path
+        other_p = other.relative_path
+        if self_p != other_p:
+            d['relative_path'] = {selfkey:self_p, othkey:other_p}
+        return d
     def is_equal(self, other, recursive=True):
         if self != other:
             return False
@@ -253,6 +288,24 @@ class FileObj(FileObjBase):
             f.write(self.content)
         os.chmod(p, self.mode)
         super(FileObj, self)._rebuild(root_path)
+    def _get_diff(self, other, reverse=False):
+        d = super(FileObj, self)._get_diff(other, reverse)
+        if other is None:
+            return d
+        selfkey = 'self'
+        othkey = 'other'
+        if reverse:
+            selfkey = 'other'
+            othkey = 'self'
+        if self.content != other.content:
+            d['content'] = {selfkey:self.content, othkey:other.content}
+            if reverse:
+                args = [other.content.splitlines(), self.content.splitlines()]
+            else:
+                args = [self.content.splitlines(), other.content.splitlines()]
+            diffgen = difflib.unified_diff(*args)
+            d['content']['diff'] = '\n'.join(diffgen)
+        return d
     def __eq__(self, other):
         r = super(FileObj, self).__eq__(other)
         if not r:
@@ -297,6 +350,21 @@ class Link(FileObjBase):
             os.mknod(l)
         os.symlink(l, p)
         super(Link, self)._rebuild(root_path)
+    def _get_diff(self, other, reverse=False):
+        d = super(Link, self)._get_diff(other, reverse)
+        if other is None:
+            return d
+        selfkey = 'self'
+        othkey = 'other'
+        if reverse:
+            selfkey = 'other'
+            othkey = 'self'
+        if self.linked_path != other.linked_path:
+            d['linked_path'] = {
+                selfkey:self.linked_path,
+                othkey:other.linked_path,
+            }
+        return d
     def __eq__(self, other):
         r = super(Link, self).__eq__(other)
         if not r:
