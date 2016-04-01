@@ -168,6 +168,14 @@ class Path(object):
             p = self.relative_path
             new_obj.path = os.path.join(root_path, p)
         return new_obj
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if other.relative_path != self.relative_path:
+            return False
+        return True
+    def __ne__(self, other):
+        return not self == other
     def __repr__(self):
         s = '<{0}: {1} at {2:#x}>'
         return s.format(self.__class__.__name__, self, id(self))
@@ -211,6 +219,11 @@ class Directory(Path):
             os.makedirs(p)
         os.chmod(p, self.mode)
         super(Directory, self)._rebuild(root_path)
+    def __eq__(self, other):
+        r = super(Directory, self).__eq__(other)
+        if not r:
+            return r
+        return set(self.children.keys()) == set(other.children.keys())
 
 class FileObjBase(Path):
     def __init__(self, **kwargs):
@@ -228,6 +241,11 @@ class FileObj(FileObjBase):
             f.write(self.content)
         os.chmod(p, self.mode)
         super(FileObj, self)._rebuild(root_path)
+    def __eq__(self, other):
+        r = super(FileObj, self).__eq__(other)
+        if not r:
+            return r
+        return self.content == other.content
 
 class Link(FileObjBase):
     serialize_attrs = ['linked_path']
@@ -267,3 +285,8 @@ class Link(FileObjBase):
             os.mknod(l)
         os.symlink(l, p)
         super(Link, self)._rebuild(root_path)
+    def __eq__(self, other):
+        r = super(Link, self).__eq__(other)
+        if not r:
+            return r
+        return self.linked_path == other.linked_path

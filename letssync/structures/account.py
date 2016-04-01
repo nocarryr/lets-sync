@@ -30,7 +30,12 @@ class Accounts(Directory):
     def add_account(self, obj):
         if obj.id not in self.accounts:
             self.accounts[obj.id] = obj
-
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if other.relative_path != self.relative_path:
+            return False
+        return set(self.accounts.keys()) == set(other.accounts.keys())
 
 class Account(Directory):
     serialize_attrs = ['meta', 'private_key', 'regr']
@@ -56,3 +61,7 @@ class AccountFile(FileObjBase):
         super(AccountFile, self).__init__(**kwargs)
         if self.data is None:
             self.data = json.loads(self.content)
+    def __eq__(self, other):
+        if not isinstance(other, AccountFile):
+            return False
+        return other.data == self.data
