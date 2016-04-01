@@ -22,6 +22,16 @@ class Path(object):
         if self.parent is None:
             self.on_tree_built()
     @property
+    def path(self):
+        return getattr(self, '_path', None)
+    @path.setter
+    def path(self, value):
+        if value == self.path:
+            return
+        self._path = value
+        for child in self.children.values():
+            child.update_path()
+    @property
     def root(self):
         if self.parent is None:
             return self
@@ -108,6 +118,10 @@ class Path(object):
                 return child.search(path)
         else:
             return None
+    def update_path(self):
+        root_path = self.root.path
+        new_path = os.path.join(self.relative_path, root_path)
+        self.path = new_path
     def find_children(self):
         pass
     def add_child(self, cls, **kwargs):
