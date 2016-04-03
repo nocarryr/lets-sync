@@ -15,13 +15,21 @@ class Path(object):
             self.modified = os.stat(self.path).st_mtime
         self.id = kwargs.get('id', self.path)
         self.parent = kwargs.get('parent')
-        self.is_serialized = kwargs.get('is_serialized', False)
+        if self.parent is None:
+            self.is_serialized = kwargs.get('is_serialized', False)
         if self.is_serialized:
             self.deserialize_children(**kwargs)
         else:
             self.find_children()
         if self.parent is None:
             self.on_tree_built()
+    @property
+    def is_serialized(self):
+        return getattr(self.root, '_is_serialized', None)
+    @is_serialized.setter
+    def is_serialized(self, value):
+        if self.parent is None:
+            self._is_serialized = value
     @property
     def path(self):
         return getattr(self, '_path', None)
@@ -127,7 +135,6 @@ class Path(object):
         pass
     def add_child(self, cls, **kwargs):
         kwargs.setdefault('parent', self)
-        kwargs.setdefault('is_serialized', self.is_serialized)
         if not self.is_serialized:
             cls = cls._child_class_override(cls, **kwargs)
         child = cls(**kwargs)
@@ -136,7 +143,6 @@ class Path(object):
     def add_existing_child(self, child):
         child._relative_path = None
         child.parent = self
-        child.is_serialized = self.is_serialized
         self.children[child.id] = child
         child.update_path()
         return child
