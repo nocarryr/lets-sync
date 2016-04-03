@@ -133,6 +133,13 @@ class Path(object):
         child = cls(**kwargs)
         self.children[child.id] = child
         return child
+    def add_existing_child(self, child):
+        child._relative_path = None
+        child.parent = self
+        child.is_serialized = self.is_serialized
+        self.children[child.id] = child
+        child.update_path()
+        return child
     def to_json(self):
         d = self.root.serialize()
         return json.dumps(d, indent=2)
