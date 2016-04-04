@@ -26,12 +26,12 @@ def generate_certs(domains):
     d['ca_key'] = ca_keypair
     cakey = ca_keypair['key']
     careq = certgen.createCertRequest(cakey, CN='Certificate Authority')
-    cacert = certgen.createCertificate(careq, (careq, cakey), 0, (0, 60*60*24*365*5))
+    cacert = certgen.createCertificate(careq, careq, cakey, 0, 0, 60*60*24*365*5)
     d['ca_cert'] = OpenSSL.crypto.dump_certificate(PEM, cacert)
     for domain in domains:
         keypair = generate_keypair()
         req = certgen.createCertRequest(keypair['key'], CN=domain)
-        cert = certgen.createCertificate(req, (cacert, cakey), 1, (0, 60*60*24*365*5))
+        cert = certgen.createCertificate(req, cacert, cakey, 1, 0, 60*60*24*365*5)
         d[domain] = {
             'keypair':keypair,
             'pkey':OpenSSL.crypto.dump_privatekey(PEM, keypair['key']),
