@@ -87,7 +87,7 @@ def build_confdir(root_path, **kwargs):
     f = account.join('regr.json')
     f.write(json.dumps(regr))
     p = {'e':'AQAB', 'kty':'RSA', 'p':str(keypair['private'])}
-    f = account.join('privkey.json')
+    f = account.join('private_key.json')
     f.write(json.dumps(p))
     f.chmod(stat.S_IRUSR | stat.S_IWUSR)
     archive = root_path.join('archive')
