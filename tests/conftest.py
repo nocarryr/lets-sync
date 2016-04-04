@@ -81,12 +81,12 @@ def build_confdir(root_path, **kwargs):
     regr = {
         'body':{
             'contact':[email],
-            'key':{'e':'AQAB', 'kty':'RSA', 'n':keypair['public']},
+            'key':{'e':'AQAB', 'kty':'RSA', 'n':str(keypair['public'])},
         },
     }
     f = account.join('regr.json')
     f.write(json.dumps(regr))
-    p = {'e':'AQAB', 'kty':'RSA', 'p':keypair['private']}
+    p = {'e':'AQAB', 'kty':'RSA', 'p':str(keypair['private'])}
     f = account.join('privkey.json')
     f.write(json.dumps(p))
     f.chmod(stat.S_IRUSR | stat.S_IWUSR)
@@ -103,7 +103,7 @@ def build_confdir(root_path, **kwargs):
             lf.mksymlinkto(f, absolute=False)
         fn = 'fullchain1.pem'
         f = ap.join(fn)
-        f.write('\n'.join([certs[domain]['cert'], certs['ca_cert']]))
+        f.write('\n'.join([str(certs[domain]['cert']), str(certs['ca_cert'])]))
         lf = lp.join('fullchain.pem')
         lf.mksymlinkto(f, absolute=False)
     d = dict(
