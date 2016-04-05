@@ -170,12 +170,13 @@ class Path(object):
     def on_tree_built(self):
         for child in self.children.values():
             child.on_tree_built()
-    def rebuild(self, root_path):
-        root = self.root
-        root._rebuild(root_path)
-    def _rebuild(self, root_path):
-        for child in self.children.values():
-            child._rebuild(root_path)
+    def write(self, overwrite=False, recursive=True):
+        self._write(overwrite)
+        if recursive:
+            for child in self.children.values():
+                child.write(overwrite, recursive)
+    def _write(self, overwrite=False):
+        raise NotImplementedError('Must be defined by subclasses')
     def copy(self, root_path=None):
         kwargs = self.serialize()
         kwargs['is_serialized'] = True
@@ -275,12 +276,12 @@ class Directory(Path):
                 self.add_link(p)
             elif os.path.isfile(p):
                 self.add_file(p)
-    def _rebuild(self, root_path):
-        p = os.path.join(root_path, self.relative_path)
-        if not os.path.exists(p):
-            os.makedirs(p)
+    def _write(self, overwrite=False):
+        p = self.path
+        if os.path.exists(p):
+            return
+        os.makedirs(p)
         os.chmod(p, self.mode)
-        super(Directory, self)._rebuild(root_path)
     def __eq__(self, other):
         r = super(Directory, self).__eq__(other)
         if not r:
@@ -294,15 +295,16 @@ class FileObjBase(Path):
         if self.content is None:
             with open(self.path, 'r') as f:
                 self.content = f.read()
-
-class FileObj(FileObjBase):
-    serialize_attrs = ['content']
-    def _rebuild(self, root_path):
-        p = os.path.join(root_path, self.relative_path)
+    def _write(self, overwrite=False):
+        p = self.path
+        if os.path.exists(p) and overwrite is False:
+            return
         with open(p, 'w') as f:
             f.write(self.content)
         os.chmod(p, self.mode)
-        super(FileObj, self)._rebuild(root_path)
+
+class FileObj(FileObjBase):
+    serialize_attrs = ['content']
     def _get_diff(self, other, reverse=False):
         d = super(FileObj, self)._get_diff(other, reverse)
         if other is None:
@@ -355,16 +357,17 @@ class Link(FileObjBase):
             p = p.lstrip(os.path.pardir).lstrip(os.sep)
         self.linked_obj = obj.search(p)
         super(Link, self).on_tree_built()
-    def _rebuild(self, root_path):
-        p = os.path.join(root_path, self.relative_path)
-        l = os.path.join(root_path, self.linked_obj.relative_path)
+    def _write(self, overwrite=False):
+        p = self.path
+        if os.path.exists(p) and overwrite is False:
+            return
+        l = os.path.join(self.root.path, self.linked_obj.relative_path)
         l = os.path.relpath(l, os.path.dirname(p))
         if not os.path.exists(l):
             if not os.path.exists(os.path.dirname(l)):
                 os.makedirs(os.path.dirname(l))
             os.mknod(l)
         os.symlink(l, p)
-        super(Link, self)._rebuild(root_path)
     def _get_diff(self, other, reverse=False):
         d = super(Link, self)._get_diff(other, reverse)
         if other is None:
