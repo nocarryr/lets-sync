@@ -131,7 +131,7 @@ class Path(object):
             return None
     def update_path(self):
         root_path = self.root.path
-        new_path = os.path.join(self.relative_path, root_path)
+        new_path = os.path.join(root_path, self.relative_path)
         self.path = new_path
     def find_children(self):
         pass
