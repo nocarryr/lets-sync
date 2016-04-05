@@ -54,11 +54,11 @@ class Account(Directory):
 
 class AccountFile(FileObjBase):
     serialize_attrs = ['data']
-    def __init__(self, **kwargs):
+    def read(self, **kwargs):
         self.data = kwargs.get('data')
         if self.data is not None:
             kwargs.setdefault('content', json.dumps(self.data))
-        super(AccountFile, self).__init__(**kwargs)
+        super(AccountFile, self).read(**kwargs)
         if self.data is None:
             self.data = json.loads(self.content)
     def _get_diff(self, other, reverse=False):

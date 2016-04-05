@@ -7,22 +7,24 @@ class Path(object):
     def __init__(self, **kwargs):
         self.children = {}
         self.path = kwargs.get('path')
-        self.mode = kwargs.get('mode')
-        if self.mode is None:
-            self.mode = os.stat(self.path).st_mode
-        self.modified = kwargs.get('modified')
-        if self.modified is None:
-            self.modified = os.stat(self.path).st_mtime
         self.id = kwargs.get('id', self.path)
         self.parent = kwargs.get('parent')
         if self.parent is None:
             self.is_serialized = kwargs.get('is_serialized', False)
+        self.read(**kwargs)
         if self.is_serialized:
             self.deserialize_children(**kwargs)
         else:
             self.find_children()
         if self.parent is None:
             self.on_tree_built()
+    def read(self, **kwargs):
+        self.mode = kwargs.get('mode')
+        if self.mode is None:
+            self.mode = os.stat(self.path).st_mode
+        self.modified = kwargs.get('modified')
+        if self.modified is None:
+            self.modified = os.stat(self.path).st_mtime
     @property
     def is_serialized(self):
         return getattr(self.root, '_is_serialized', None)
@@ -286,8 +288,8 @@ class Directory(Path):
         return set(self.children.keys()) == set(other.children.keys())
 
 class FileObjBase(Path):
-    def __init__(self, **kwargs):
-        super(FileObjBase, self).__init__(**kwargs)
+    def read(self, **kwargs):
+        super(FileObjBase, self).read(**kwargs)
         self.content = kwargs.get('content')
         if self.content is None:
             with open(self.path, 'r') as f:
@@ -327,8 +329,8 @@ class FileObj(FileObjBase):
 
 class Link(FileObjBase):
     serialize_attrs = ['linked_path']
-    def __init__(self, **kwargs):
-        super(Link, self).__init__(**kwargs)
+    def read(self, **kwargs):
+        super(Link, self).read(**kwargs)
         self.linked_path = kwargs.get('linked_path')
         if self.linked_path is None:
             self.linked_path = os.readlink(self.path)
