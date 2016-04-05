@@ -43,3 +43,11 @@ def test_overwrite_protection(conf_dir, tmpdir_factory):
     with open(meta.path, 'r') as f:
         s = f.read()
     assert s == prev_content
+
+def test_serialization(conf_dir):
+    from letssync.structures import build_tree
+    from letssync.structures.base import Path
+    r1 = build_tree(str(conf_dir['root_path']))
+    js_str = r1.to_json()
+    r2 = Path.from_json(js_str)
+    assert r1.is_equal(r2) and r2.is_equal(r1)
