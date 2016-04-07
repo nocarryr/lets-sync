@@ -79,7 +79,8 @@ def build_renewal_conf(root_path, account_id, domains):
     d = dict(root_path=str(root_path), account_id=account_id)
     for domain in domains:
         d['domain'] = domain
-        f = root_path.join('renewal', domain)
+        fn = '.'.join([domain, 'conf'])
+        f = root_path.join('renewal', fn)
         f.write(template.format(**d))
 
 def build_confdir(root_path, **kwargs):
