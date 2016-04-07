@@ -32,7 +32,7 @@ class RenewalConf(FileObj):
     serialize_attrs = ['account_id', 'domain']
     def read(self, **kwargs):
         super(RenewalConf, self).read(**kwargs)
-        if PY2:
+        if PY2 and not isinstance(self.content, unicode):
             b = io.BytesIO(self.content)
         else:
             b = io.StringIO(self.content)
