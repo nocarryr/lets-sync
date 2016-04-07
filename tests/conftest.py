@@ -61,6 +61,17 @@ def build_conf_shell(root_path, domains):
     p = root_path.mkdir('renewal')
     p.chmod(dirstat)
 
+def build_cert_files(root_path, certs, domains):
+    for domain in domains:
+        for fn, lfn in [['cert1.pem', 'cert.pem'], ['chain1.pem', 'chain.pem']]:
+            f = root_path.join('archive', domain, fn)
+            f.write(certs[domain]['cert'])
+            lf = root_path.join('live', domain, lfn)
+            lf.mksymlinkto(f, absolute=False)
+        f = root_path.join('archive', domain, 'fullchain1.pem')
+        f.write('\n'.join([str(certs[domain]['cert']), str(certs['ca_cert'])]))
+        lf = root_path.join('live', domain, 'fullchain.pem')
+        lf.mksymlinkto(f, absolute=False)
 
 def build_confdir(root_path, **kwargs):
     dirstat = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
@@ -90,22 +101,8 @@ def build_confdir(root_path, **kwargs):
     f = account.join('private_key.json')
     f.write(json.dumps(p))
     f.chmod(stat.S_IRUSR | stat.S_IWUSR)
-    archive = root_path.join('archive')
-    live = root_path.join('live')
     certs = generate_certs(domains)
-    for domain in domains:
-        ap = archive.join(domain)
-        lp = live.join(domain)
-        for fn, lfn in [['cert1.pem', 'cert.pem'], ['chain1.pem', 'chain.pem']]:
-            f = ap.join(fn)
-            f.write(certs[domain]['cert'])
-            lf = lp.join(lfn)
-            lf.mksymlinkto(f, absolute=False)
-        fn = 'fullchain1.pem'
-        f = ap.join(fn)
-        f.write('\n'.join([str(certs[domain]['cert']), str(certs['ca_cert'])]))
-        lf = lp.join('fullchain.pem')
-        lf.mksymlinkto(f, absolute=False)
+    build_cert_files(root_path, certs, domains)
     d = dict(
         account_id=account_id,
         email=email,
