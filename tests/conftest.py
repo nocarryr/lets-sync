@@ -73,6 +73,15 @@ def build_cert_files(root_path, certs, domains):
         lf = root_path.join('live', domain, 'fullchain.pem')
         lf.mksymlinkto(f, absolute=False)
 
+def build_renewal_conf(root_path, account_id, domains):
+    with open(os.path.join('tests', 'renewal-template.conf'), 'r') as f:
+        template = f.read()
+    d = dict(root_path=str(root_path), account_id=account_id)
+    for domain in domains:
+        d['domain'] = domain
+        f = root_path.join('renewal', domain)
+        f.write(template.format(**d))
+
 def build_confdir(root_path, **kwargs):
     dirstat = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
     account_id = kwargs.get('account_id', generate_account_id())
@@ -103,6 +112,7 @@ def build_confdir(root_path, **kwargs):
     f.chmod(stat.S_IRUSR | stat.S_IWUSR)
     certs = generate_certs(domains)
     build_cert_files(root_path, certs, domains)
+    build_renewal_conf(root_path, account_id, domains)
     d = dict(
         account_id=account_id,
         email=email,
