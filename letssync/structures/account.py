@@ -5,6 +5,13 @@ from letssync.structures.base import Directory, FileObjBase
 
 
 class Accounts(Directory):
+    """A directory that keeps track of account information
+
+    Attributes:
+        accounts (dict): A dictionary containing all discovered accounts.
+            Only one instance of :class:`Accounts` will hold the :class:`dict`
+            object, all others will reference it indirectly.
+    """
     @property
     def accounts(self):
         a = getattr(self, '_accounts', None)
@@ -38,6 +45,11 @@ class Accounts(Directory):
         return set(self.accounts.keys()) == set(other.accounts.keys())
 
 class Account(Directory):
+    """Holds data stored with an account with its associated
+    :attr:`~letssync.structures.base.Path.id`
+    Data is read from the files within the account directory:
+    'meta.json', 'private_key.json' and 'regr.json'
+    """
     serialize_attrs = ['meta', 'private_key', 'regr']
     @classmethod
     def _child_class_override(cls, child_class, **kwargs):
@@ -53,6 +65,8 @@ class Account(Directory):
 
 
 class AccountFile(FileObjBase):
+    """A file used to read and store data used in :class:`Account`
+    """
     serialize_attrs = ['data']
     def read(self, **kwargs):
         self.data = kwargs.get('data')

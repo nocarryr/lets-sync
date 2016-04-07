@@ -3,6 +3,27 @@ import json
 import difflib
 
 class Path(object):
+    """Base class for all file/directory structures
+    All instances of :class:`Path` serve as nodes of a tree through their
+    :attr:`parent` and :attr:`children` attributes.
+
+    Attributes:
+        path (str): The full filesystem path of the instance,
+            this is automatically set when child nodes are built.
+            If set after initialization, all child nodes will adjust their
+            paths relative to this. (This should only be performed on
+            'root' nodes)
+        id (str): The directory name or filename (relative to the parent)
+        parent: Reference to the parent instance.  If :const:`None`,
+            this will act as the 'root' of the tree structure.
+        is_serialized (bool): Is set to :const:`True` when an instance is either
+            copied or deserialized. Used internally to control how child objects
+            are built.
+        mode (int): The filesystem mode as reported by :func:`os.stat`
+        modified (float): The last modified timestamp as reported by :func:`os.stat`
+        serialize_attrs: (Class attribute) A :class:`list` of strings defining
+            attributes used for serialization/deserialization
+    """
     serialize_attrs = ['path', 'mode', 'id', 'modified']
     def __init__(self, **kwargs):
         self.children = {}
@@ -19,6 +40,8 @@ class Path(object):
         if self.parent is None:
             self.on_tree_built()
     def read(self, **kwargs):
+        """Reads the necessary attributes from the filesystem
+        """
         self.mode = kwargs.get('mode')
         if self.mode is None:
             self.mode = os.stat(self.path).st_mode
@@ -49,6 +72,8 @@ class Path(object):
         return self.parent.root
     @property
     def relative_path(self):
+        """The node's path relative to its root
+        """
         p = getattr(self, '_relative_path', None)
         if p is None:
             if self.parent is None:
@@ -59,6 +84,9 @@ class Path(object):
         return p
     @classmethod
     def get_serialize_attrs(cls):
+        """Retrieves :attr:`Path.serialize_attrs` for serialization
+        All members (subclasses and base classes) are searched.
+        """
         def iter_bases(_cls=None):
             if _cls is None:
                 _cls = cls
@@ -89,6 +117,8 @@ class Path(object):
         return search(Path)
     @classmethod
     def _child_class_override(cls, child_class, **kwargs):
+        """Allows subclasses to override the class to use before a child is built
+        """
         def get_last_cls(_cls=None):
             if _cls is None:
                 _cls = cls
@@ -109,11 +139,23 @@ class Path(object):
         return child_class
     @classmethod
     def from_json(cls, s):
+        """Deserializes a properly formatted JSON string to build an entire tree
+
+        Returns:
+            Path: An instance of :class:`Path` or one of its subclasses
+                (most likely :class:`Directory`)
+        """
         d = json.loads(s)
         _cls = cls.find_subclass(d['class_name'])
         d['is_serialized'] = True
         return _cls(**d)
     def search(self, path):
+        """Search for the given path relative to the instance
+
+        Returns:
+            Path: An instance of :class:`Path` or one of its subclasses if found,
+                otherwise :const:`None`
+        """
         if not isinstance(path, list):
             path = path.split(os.sep)
         key = path[0]
@@ -130,12 +172,25 @@ class Path(object):
         else:
             return None
     def update_path(self):
+        """Resets the :attr:`Path.path` for this instance relative to its parent
+        Called automatically by the parent when its path has been alterered
+        (resulting in a recursive update for the entire tree)
+        """
         root_path = self.root.path
         new_path = os.path.join(root_path, self.relative_path)
         self.path = new_path
     def find_children(self):
+        """Used by subclasses to build the tree structure from the filesystem
+        """
         pass
     def add_child(self, cls, **kwargs):
+        """Instanciates and adds a child with the given class
+        Sets appropriate :obj:`kwargs` to properly incorporate the child
+        into the tree
+
+        Returns:
+            Path: The created child object (an instance of :class:`Path`)
+        """
         kwargs.setdefault('parent', self)
         if not self.is_serialized:
             cls = cls._child_class_override(cls, **kwargs)
@@ -143,41 +198,81 @@ class Path(object):
         self.children[child.id] = child
         return child
     def add_existing_child(self, child):
+        """Adds an existing instance of :class:`Path` as a child
+        Sets appropriate attribtes on the child object to incorporate it
+        into the tree
+        """
         child._relative_path = None
         child.parent = self
         self.children[child.id] = child
         child.update_path()
         return child
     def to_json(self):
+        """Serializes the entire tree into a JSON string
+        """
         d = self.root.serialize()
         return json.dumps(d, indent=2)
     def serialize(self):
+        """Retrieves all data needed for serialization, including children
+
+        Returns:
+            dict: A :class:`dict` containing all data to be serialized
+        """
         d = self._serialize()
         d['children'] = {}
         for key, val in self.children.items():
             d['children'][key] = val.serialize()
         return d
     def _serialize(self):
+        """Retrieves serialization data for this instance only
+
+        Returns:
+            dict: A :class:`dict` with the instance's attribtes/values
+                and the class name
+        """
         attrs = self.get_serialize_attrs()
         d = {attr: getattr(self, attr) for attr in attrs}
         d['class_name'] = self.__class__.__name__
         return d
     def deserialize_children(self, **kwargs):
+        """Builds children given the data structure passed
+        Child classes are chosen based off of the serialized class name
+        """
         children = kwargs.get('children', {})
         for key, val in children.items():
             cls = self.find_subclass(val['class_name'])
             self.add_child(cls, **val)
     def on_tree_built(self):
+        """Called (recursively) by the tree root after all children have been built
+        Used for operations that depend on other objects to exist in the tree
+        """
         for child in self.children.values():
             child.on_tree_built()
     def write(self, overwrite=False, recursive=True):
+        """Write the objects in the tree to their given paths
+
+        Arguments:
+            overwrite (bool): If :const:`True`, any existing files are allowed
+                to be overwritten
+            recursive (bool): default is :const:`True`
+        """
         self._write(overwrite)
         if recursive:
             for child in self.children.values():
                 child.write(overwrite, recursive)
     def _write(self, overwrite=False):
+        """Used by subclasses to handle the write operation
+        """
         raise NotImplementedError('Must be defined by subclasses')
     def copy(self, root_path=None):
+        """Creates a 'deep' copy of this node (including children)
+
+        Arguments:
+            root_path (str): If set, sets a new root path for the copied object
+
+        Returns:
+            Path: The newly copied instance of :class:`Path`
+        """
         kwargs = self.serialize()
         kwargs['is_serialized'] = True
         new_obj = self.__class__(**kwargs)
@@ -220,6 +315,14 @@ class Path(object):
             d['relative_path'] = {selfkey:self_p, othkey:other_p}
         return d
     def is_equal(self, other, recursive=True):
+        """Used to perform equality checking, typically for recursive checks
+
+        Arguments:
+            other: :class:`Path` instance
+            recursive (bool): default is :const:`True`
+        Returns:
+            bool: True if equal
+        """
         if self != other:
             return False
         if recursive:
@@ -246,6 +349,9 @@ class Path(object):
         return self.path
 
 class Directory(Path):
+    """Represents a filesystem directory
+    This is the main starting point for building a tree with a given path
+    """
     def add_subdirectory(self, fn, cls=None):
         if cls is None:
             cls = Directory
@@ -289,6 +395,13 @@ class Directory(Path):
         return set(self.children.keys()) == set(other.children.keys())
 
 class FileObjBase(Path):
+    """Base class for file objects
+    Handles reading and writing to files
+
+    Attributes:
+        content (str): The file content.
+            If not given, the file given by :attr:`Path.path` will be read
+    """
     def read(self, **kwargs):
         super(FileObjBase, self).read(**kwargs)
         self.content = kwargs.get('content')
@@ -304,6 +417,9 @@ class FileObjBase(Path):
         os.chmod(p, self.mode)
 
 class FileObj(FileObjBase):
+    """Represents an actual file (not a symlink)
+    File contents are only serialized by default in this class
+    """
     serialize_attrs = ['content']
     def _get_diff(self, other, reverse=False):
         d = super(FileObj, self)._get_diff(other, reverse)
@@ -330,6 +446,13 @@ class FileObj(FileObjBase):
         return self.content == other.content
 
 class Link(FileObjBase):
+    """Represents a symbolic link to another file
+    (used for certs under "live")
+
+    Attributes:
+        linked_path (str): The symlink as reported by :func:`os.readlink`
+        linked_obj: A reference to the linked :class:`FileObj` instance
+    """
     serialize_attrs = ['linked_path']
     def read(self, **kwargs):
         super(Link, self).read(**kwargs)
@@ -350,6 +473,8 @@ class Link(FileObjBase):
         if obj is not None:
             obj.content = value
     def on_tree_built(self):
+        """Searches the tree for the linked object
+        """
         p = self.linked_path
         obj = self.parent
         while p.startswith(os.path.pardir):
