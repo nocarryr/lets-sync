@@ -50,19 +50,32 @@ class Account(Directory):
     Data is read from the files within the account directory:
     'meta.json', 'private_key.json' and 'regr.json'
     """
-    serialize_attrs = ['meta', 'private_key', 'regr']
+    serialize_attrs = ['meta', 'private_key', 'regr', 'domains']
     @classmethod
     def _child_class_override(cls, child_class, **kwargs):
         parent = kwargs.get('parent')
         if parent.id == 'directory' and parent.__class__ is Accounts:
             return Account
+    def read(self, **kwargs):
+        super(Account, self).read(**kwargs)
+        self.domains = kwargs.get('domains', [])
     def add_child(self, cls, **kwargs):
         cls = AccountFile
         obj = super(Account, self).add_child(cls, **kwargs)
         attr = os.path.splitext(obj.id)[0]
         setattr(self, attr, obj.data)
         return obj
-
+    def on_tree_built(self):
+        renewal = self.root.children['renewal']
+        for key in renewal.accounts[self.id].keys():
+            if key in self.domains:
+                continue
+            self.domains.append(key)
+    def __eq__(self, other):
+        r = super(Account, self).__eq__(other)
+        if not r:
+            return False
+        return set(self.domains) == set(other.domains)
 
 class AccountFile(FileObjBase):
     """A file used to read and store data used in :class:`Account`
