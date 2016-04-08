@@ -38,6 +38,7 @@ def generate_certs(**kwargs):
             'pkey':OpenSSL.crypto.dump_privatekey(PEM, keypair['key']),
             'cert':OpenSSL.crypto.dump_certificate(PEM, cert),
         }
+        d[domain]['fullchain'] = '\n'.join([str(d[domain]['cert']), str(d['ca_cert'])])
     return d
 
 def generate_account_id():
@@ -69,15 +70,16 @@ def build_cert_files(**kwargs):
     certs = kwargs.get('certs')
     domains = kwargs.get('domains')
     for domain in domains:
-        for fn, lfn in [['cert1.pem', 'cert.pem'], ['chain1.pem', 'chain.pem']]:
+        for fn, lfn in [['cert1.pem', 'cert.pem'], ['chain1.pem', 'chain.pem'],
+                        ['fullchain1.pem', 'fullchain.pem']]:
             f = root_path.join('archive', domain, fn)
-            f.write(certs[domain]['cert'])
+            if 'fullchain' in fn:
+                cert = certs[domain]['fullchain']
+            else:
+                cert = certs[domain]['cert']
+            f.write(cert)
             lf = root_path.join('live', domain, lfn)
             lf.mksymlinkto(f, absolute=False)
-        f = root_path.join('archive', domain, 'fullchain1.pem')
-        f.write('\n'.join([str(certs[domain]['cert']), str(certs['ca_cert'])]))
-        lf = root_path.join('live', domain, 'fullchain.pem')
-        lf.mksymlinkto(f, absolute=False)
 
 def build_renewal_conf(**kwargs):
     root_path = kwargs.get('root_path')
