@@ -29,6 +29,10 @@ def generate_certs(**kwargs):
     careq = certgen.createCertRequest(cakey, CN='Certificate Authority')
     cacert = certgen.createCertificate(careq, careq, cakey, 0, 0, 60*60*24*365*5)
     d['ca_cert'] = OpenSSL.crypto.dump_certificate(PEM, cacert)
+    if isinstance(d['ca_cert'], bytes):
+        delim = b'\n'
+    else:
+        delim = '\n'
     for domain in domains:
         keypair = generate_keypair()
         req = certgen.createCertRequest(keypair['key'], CN=domain)
@@ -38,7 +42,7 @@ def generate_certs(**kwargs):
             'pkey':OpenSSL.crypto.dump_privatekey(PEM, keypair['key']),
             'cert':OpenSSL.crypto.dump_certificate(PEM, cert),
         }
-        d[domain]['fullchain'] = '\n'.join([str(d[domain]['cert']), str(d['ca_cert'])])
+        d[domain]['fullchain'] = delim.join([d[domain]['cert'], d['ca_cert']])
     return d
 
 def generate_account_id():
