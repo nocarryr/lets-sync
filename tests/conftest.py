@@ -55,18 +55,24 @@ def build_conf_shell(**kwargs):
     p = root_path
     domains = kwargs.get('domains')
     for dirname in ['accounts', 'acme-v01.api.letsencrypt.org', 'directory']:
-        p = p.mkdir(dirname)
+        p = p.join(dirname)
+        p.ensure(dir=True)
         p.chmod(dirstat)
-    archive = root_path.mkdir('archive')
+    archive = root_path.join('archive')
+    archive.ensure(dir=True)
     archive.chmod(dirstat)
-    live = root_path.mkdir('live')
+    live = root_path.join('live')
+    live.ensure(dir=True)
     live.chmod(dirstat)
     for domain in domains:
-        p = archive.mkdir(domain)
+        p = archive.join(domain)
+        p.ensure(dir=True)
         p.chmod(dirstat)
-        p = live.mkdir(domain)
+        p = live.join(domain)
+        p.ensure(dir=True)
         p.chmod(dirstat)
-    p = root_path.mkdir('renewal')
+    p = root_path.join('renewal')
+    p.ensure(dir=True)
     p.chmod(dirstat)
 
 def build_cert_files(**kwargs):
@@ -123,7 +129,8 @@ def build_confdir(**kwargs):
     data.setdefault('certs', generate_certs(**data))
     build_conf_shell(**data)
     accounts = data['root_path'].join('accounts', 'acme-v01.api.letsencrypt.org', 'directory')
-    account = accounts.mkdir(data['account_id'])
+    account = accounts.join(data['account_id'])
+    account.ensure(dir=True)
     account.chmod(dirstat)
     f = account.join('meta.json')
     f.write(json.dumps(data['account_meta']))
@@ -173,3 +180,17 @@ def multi_conf_renewal_out_of_sync(request, tmpdir_factory):
     renewed_data['certs'] = generate_certs(**renewed_data)
     build_cert_files(**renewed_data)
     return dict(base=base_data, renewed=renewed_data)
+
+@pytest.fixture
+def multi_conf_two_accounts(request, tmpdir_factory):
+    tmpdir = tmpdir_factory.mktemp(request.node.name)
+    p1 = tmpdir.mkdir('base')
+    p2 = tmpdir.mkdir('new_account')
+    base_data = build_confdir(root_path=p1)
+    p1.copy(p2)
+    new_account_data = build_confdir(
+        root_path=p2,
+        domains=['anotherexample.com', 'www.anotherexample.com'],
+        email=['test@anotherexample.com'],
+    )
+    return dict(base=base_data, new_account=new_account_data)

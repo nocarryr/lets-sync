@@ -1,3 +1,4 @@
+import os
 
 def test_renewals(multi_conf_renewal_out_of_sync):
     from letssync.structures import build_tree
@@ -41,3 +42,32 @@ def test_diff(multi_conf_renewal_out_of_sync):
         elif key.startswith('archive'):
             assert val['content']['base'] is None
             assert val['content']['renewed'] is not None
+
+def test_multi_account(multi_conf_two_accounts):
+    from letssync.structures import build_tree
+    base = multi_conf_two_accounts['base']
+    new_account = multi_conf_two_accounts['new_account']
+    r1 = build_tree(str(base['root_path']))
+    r2 = build_tree(str(new_account['root_path']))
+    r1.name = 'base'
+    r2.name = 'new_account'
+    diff = r1.get_diff(r2)
+    keys_expected = []
+    for domain in new_account['domains']:
+        keys_expected.append(os.path.join('live', domain))
+        keys_expected.append(os.path.join('archive', domain))
+        for fn in ['cert', 'chain', 'fullchain', 'privkey']:
+            keys_expected.append('live/{}/{}.pem'.format(domain, fn))
+            keys_expected.append('archive/{}/{}1.pem'.format(domain, fn))
+        keys_expected.append('renewal/{}.conf'.format(domain))
+    account_id = new_account['account_id']
+    ac_path = os.path.join('accounts', 'acme-v01.api.letsencrypt.org', 'directory')
+    ac_path = os.path.join(ac_path, account_id)
+    keys_expected.append(ac_path)
+    for fn in ['regr.json', 'private_key.json', 'meta.json']:
+        keys_expected.append(os.path.join(ac_path, fn))
+    assert set(diff.keys()) == set(keys_expected)
+    for key in keys_expected:
+        val = diff[key]
+        assert val['class_name']['new_account'] is not None
+        assert val['class_name']['base'] is None
