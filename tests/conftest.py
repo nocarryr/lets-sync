@@ -88,6 +88,8 @@ def build_cert_files(**kwargs):
                 cert = certs[domain]['cert']
             f.write(cert)
             lf = root_path.join('live', domain, lfn)
+            if lf.exists():
+                lf.remove()
             lf.mksymlinkto(f, absolute=False)
 
 def build_renewal_conf(**kwargs):
@@ -145,3 +147,10 @@ def build_confdir(**kwargs):
 def conf_dir(tmpdir):
     data = build_confdir(root_path=tmpdir)
     return data
+
+@pytest.fixture
+def conf_with_renewals(conf_dir):
+    conf_dir['domain_indecies'] = {d: 2 for d in conf_dir['domains']}
+    conf_dir['certs'] = generate_certs(**conf_dir)
+    build_cert_files(**conf_dir)
+    return conf_dir
