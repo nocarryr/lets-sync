@@ -294,22 +294,28 @@ class Path(object):
             new_obj.path = os.path.join(root_path, p)
         return new_obj
     def get_diff(self, other, reverse=False):
+        d = {}
         if self == other:
-            diff = None
+            diff = {}
         else:
             diff = self._get_diff(other)
-        d = {self.relative_path: diff}
+        if diff:
+            d[self.relative_path] = diff
         for key, child in self.children.items():
             if other is None:
                 other_child = None
             else:
                 other_child = other.children.get(key)
-            d.update(child.get_diff(other_child, reverse=reverse))
+            _d = child.get_diff(other_child, reverse=reverse)
+            if len(_d):
+                d.update(_d)
         if other is not None:
             for key, other_child in other.children.items():
                 if key in self.children:
                     continue
-                d.update(other_child.get_diff(None, reverse=True))
+                _d = other_child.get_diff(None, reverse=True)
+                if len(_d):
+                    d.update(_d)
         return d
     def _get_diff(self, other, reverse=False):
         selfkey = 'self'
