@@ -69,9 +69,12 @@ def build_cert_files(**kwargs):
     root_path = kwargs.get('root_path')
     certs = kwargs.get('certs')
     domains = kwargs.get('domains')
+    domain_indecies = kwargs.get('domain_indecies', {})
     for domain in domains:
-        for fn, lfn in [['cert1.pem', 'cert.pem'], ['chain1.pem', 'chain.pem'],
-                        ['fullchain1.pem', 'fullchain.pem']]:
+        i = domain_indecies.get(domain, 1)
+        for base_fn in ['cert', 'chain', 'fullchain']:
+            fn = '{0}{1}.pem'.format(base_fn, i)
+            lfn = '{0}.pem'.format(base_fn, i)
             f = root_path.join('archive', domain, fn)
             if 'fullchain' in fn:
                 cert = certs[domain]['fullchain']
