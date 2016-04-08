@@ -9,6 +9,15 @@ from letssync.structures.base import Directory, FileObj
 PY2 = sys.version_info.major == 2
 
 class Renewals(Directory):
+    """A directory containing renewal configuration
+
+    Attributes:
+        domains (dict): A dictionary containing discovered domain names as keys
+            with their associated :class:`RenewalConf` objects as values
+        accounts (dict): A dictionary mapping account_id's discovered from
+            the configuration files as keys to the domains they are associated
+            with as values (a :class:`list` of strings)
+    """
     def __init__(self, **kwargs):
         self.domains = {}
         self.accounts = {}
@@ -29,6 +38,12 @@ class Renewals(Directory):
 
 
 class RenewalConf(FileObj):
+    """A renewal configuration file
+
+    Attributes:
+        account_id (str): The account_id contained in the config file
+        domain (str): The domain name (discovered from the filename itself)
+    """
     serialize_attrs = ['account_id', 'domain']
     def read(self, **kwargs):
         super(RenewalConf, self).read(**kwargs)
