@@ -8,6 +8,7 @@ class Path(object):
     :attr:`parent` and :attr:`children` attributes.
 
     Attributes:
+        name (str): Name of the tree. (Only stored on the root)
         path (str): The full filesystem path of the instance,
             this is automatically set when child nodes are built.
             If set after initialization, all child nodes will adjust their
@@ -42,12 +43,22 @@ class Path(object):
     def read(self, **kwargs):
         """Reads the necessary attributes from the filesystem
         """
+        self.name = kwargs.get('name')
         self.mode = kwargs.get('mode')
         if self.mode is None:
             self.mode = os.stat(self.path).st_mode
         self.modified = kwargs.get('modified')
         if self.modified is None:
             self.modified = os.stat(self.path).st_mtime
+    @property
+    def name(self):
+        if self.parent is None:
+            return getattr(self, '_name', None)
+        return self.parent.name
+    @name.setter
+    def name(self, value):
+        if self.parent is None:
+            self._name = value
     @property
     def is_serialized(self):
         return getattr(self.root, '_is_serialized', None)
@@ -233,6 +244,8 @@ class Path(object):
         attrs = self.get_serialize_attrs()
         d = {attr: getattr(self, attr) for attr in attrs}
         d['class_name'] = self.__class__.__name__
+        if self.parent is None:
+            d['name'] = self.name
         return d
     def deserialize_children(self, **kwargs):
         """Builds children given the data structure passed
