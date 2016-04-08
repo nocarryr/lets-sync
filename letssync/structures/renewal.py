@@ -54,11 +54,7 @@ class RenewalConf(FileObj):
         self.config = ConfigObj(b)
         self.account_id = kwargs.get('account_id')
         if self.account_id is None:
-            try:
-                self.account_id = self.config['renewalparams']['account']
-            except TypeError:
-                print(self.config['renewalparams'], type(self.config['renewalparams']))
-                raise
+            self.account_id = self.config['renewalparams']['account']
         self.domain = kwargs.get('domain')
         if self.domain is None:
             self.domain = self.id.rstrip('.conf')
