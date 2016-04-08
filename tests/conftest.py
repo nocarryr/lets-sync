@@ -113,6 +113,10 @@ def build_confdir(**kwargs):
         email = 'test@example.com',
         domains = ['example.com', 'www.example.com'],
         keypair = generate_keypair(),
+        account_meta = {
+            'creation_host':'localhost',
+            'creation_dt':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        }
     )
     for key, val in defaults.items():
         data.setdefault(key, val)
@@ -121,12 +125,8 @@ def build_confdir(**kwargs):
     accounts = data['root_path'].join('accounts', 'acme-v01.api.letsencrypt.org', 'directory')
     account = accounts.mkdir(data['account_id'])
     account.chmod(dirstat)
-    meta = {
-        'creation_host':'localhost',
-        'creation_dt':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-    }
     f = account.join('meta.json')
-    f.write(json.dumps(meta))
+    f.write(json.dumps(data['account_meta']))
     regr = {
         'body':{
             'contact':[data['email']],
@@ -154,3 +154,22 @@ def conf_with_renewals(conf_dir):
     conf_dir['certs'] = generate_certs(**conf_dir)
     build_cert_files(**conf_dir)
     return conf_dir
+
+@pytest.fixture
+def multi_conf_renewal_out_of_sync(request, tmpdir_factory):
+    tmpdir = tmpdir_factory.mktemp(request.node.name)
+    p1 = tmpdir.mkdir('base')
+    p2 = tmpdir.mkdir('renewed')
+    base_data = build_confdir(root_path=p1)
+    domain_indecies = {d: 2 for d in base_data['domains']}
+    renewed_data = build_confdir(
+        root_path=p2,
+        account_id=base_data['account_id'],
+        account_meta=base_data['account_meta'],
+        keypair=base_data['keypair'],
+        certs=base_data['certs'],
+    )
+    renewed_data['domain_indecies'] = domain_indecies
+    renewed_data['certs'] = generate_certs(**renewed_data)
+    build_cert_files(**renewed_data)
+    return dict(base=base_data, renewed=renewed_data)
