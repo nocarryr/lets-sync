@@ -20,7 +20,8 @@ def generate_keypair():
     pub = OpenSSL.crypto.dump_publickey(PEM, key)
     return dict(private=priv, public=pub, key=key)
 
-def generate_certs(domains):
+def generate_certs(**kwargs):
+    domains = kwargs.get('domains')
     d = {}
     ca_keypair = generate_keypair()
     d['ca_key'] = ca_keypair
@@ -43,9 +44,11 @@ def generate_account_id():
     chars = string.hexdigits
     return ''.join(random.choice(chars) for i in range(32))
 
-def build_conf_shell(root_path, domains):
+def build_conf_shell(**kwargs):
     dirstat = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
+    root_path = kwargs.get('root_path')
     p = root_path
+    domains = kwargs.get('domains')
     for dirname in ['accounts', 'acme-v01.api.letsencrypt.org', 'directory']:
         p = p.mkdir(dirname)
         p.chmod(dirstat)
@@ -61,7 +64,10 @@ def build_conf_shell(root_path, domains):
     p = root_path.mkdir('renewal')
     p.chmod(dirstat)
 
-def build_cert_files(root_path, certs, domains):
+def build_cert_files(**kwargs):
+    root_path = kwargs.get('root_path')
+    certs = kwargs.get('certs')
+    domains = kwargs.get('domains')
     for domain in domains:
         for fn, lfn in [['cert1.pem', 'cert.pem'], ['chain1.pem', 'chain.pem']]:
             f = root_path.join('archive', domain, fn)
@@ -73,7 +79,10 @@ def build_cert_files(root_path, certs, domains):
         lf = root_path.join('live', domain, 'fullchain.pem')
         lf.mksymlinkto(f, absolute=False)
 
-def build_renewal_conf(root_path, account_id, domains):
+def build_renewal_conf(**kwargs):
+    root_path = kwargs.get('root_path')
+    account_id = kwargs.get('account_id')
+    domains = kwargs.get('domains')
     with open(os.path.join('tests', 'renewal-template.conf'), 'r') as f:
         template = f.read()
     d = dict(root_path=str(root_path), account_id=account_id)
@@ -83,15 +92,21 @@ def build_renewal_conf(root_path, account_id, domains):
         f = root_path.join('renewal', fn)
         f.write(template.format(**d))
 
-def build_confdir(root_path, **kwargs):
+def build_confdir(**kwargs):
     dirstat = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
-    account_id = kwargs.get('account_id', generate_account_id())
-    email = kwargs.get('email', 'test@example.com')
-    domains = kwargs.get('domains', ['example.com', 'www.example.com'])
-    keypair = kwargs.get('keypair', generate_keypair())
-    build_conf_shell(root_path, domains)
-    accounts = root_path.join('accounts', 'acme-v01.api.letsencrypt.org', 'directory')
-    account = accounts.mkdir(account_id)
+    data = kwargs.copy()
+    defaults = dict(
+        account_id = generate_account_id(),
+        email = 'test@example.com',
+        domains = ['example.com', 'www.example.com'],
+        keypair = generate_keypair(),
+    )
+    for key, val in defaults.items():
+        data.setdefault(key, val)
+    data.setdefault('certs', generate_certs(**data))
+    build_conf_shell(**data)
+    accounts = data['root_path'].join('accounts', 'acme-v01.api.letsencrypt.org', 'directory')
+    account = accounts.mkdir(data['account_id'])
     account.chmod(dirstat)
     meta = {
         'creation_host':'localhost',
@@ -101,30 +116,21 @@ def build_confdir(root_path, **kwargs):
     f.write(json.dumps(meta))
     regr = {
         'body':{
-            'contact':[email],
-            'key':{'e':'AQAB', 'kty':'RSA', 'n':str(keypair['public'])},
+            'contact':[data['email']],
+            'key':{'e':'AQAB', 'kty':'RSA', 'n':str(data['keypair']['public'])},
         },
     }
     f = account.join('regr.json')
     f.write(json.dumps(regr))
-    p = {'e':'AQAB', 'kty':'RSA', 'p':str(keypair['private'])}
+    p = {'e':'AQAB', 'kty':'RSA', 'p':str(data['keypair']['private'])}
     f = account.join('private_key.json')
     f.write(json.dumps(p))
     f.chmod(stat.S_IRUSR | stat.S_IWUSR)
-    certs = generate_certs(domains)
-    build_cert_files(root_path, certs, domains)
-    build_renewal_conf(root_path, account_id, domains)
-    d = dict(
-        account_id=account_id,
-        email=email,
-        domains=domains,
-        keypair=keypair,
-        certs=certs,
-    )
-    return d
+    build_cert_files(**data)
+    build_renewal_conf(**data)
+    return data
 
 @pytest.fixture
 def conf_dir(tmpdir):
-    data = build_confdir(tmpdir)
-    data['root_path'] = tmpdir
+    data = build_confdir(root_path=tmpdir)
     return data
