@@ -71,5 +71,34 @@ class RenewalConf(FileObj):
             return
         with open(self.path, 'wb') as f:
             self.config.write(f)
+    def _get_diff(self, other, other_name):
+        d = super(RenewalConf, self)._get_diff(other, other_name)
+        if other is None:
+            return d
+        if 'content' in d:
+            del d['content']
+        cdiff = {}
+        def on_walk(section, key, **kwargs):
+            name = kwargs.get('name')
+            if section.name not in cdiff:
+                cdiff[section.name] = {}
+            val = section[key]
+            if key in cdiff[section.name]:
+                other_val = list(cdiff[section.name][key].values())[0]
+                if other_val == val:
+                    del cdiff[section.name][key]
+                    if not len(cdiff[section.name]):
+                        del cdiff[section.name]
+                    return
+            else:
+                cdiff[section.name][key] = {}
+            cdiff[section.name][key][name] = val
+        self.config.walk(on_walk, name=self.name)
+        other.config.walk(on_walk, name=other_name)
+        if len(cdiff):
+            d['config'] = cdiff
+        return d
     def __eq__(self, other):
+        if not isinstance(other, RenewalConf):
+            return False
         return self.config.dict() == other.config.dict()
