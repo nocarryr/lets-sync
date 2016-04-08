@@ -76,12 +76,14 @@ def build_cert_files(**kwargs):
     domain_indecies = kwargs.get('domain_indecies', {})
     for domain in domains:
         i = domain_indecies.get(domain, 1)
-        for base_fn in ['cert', 'chain', 'fullchain']:
+        for base_fn in ['cert', 'chain', 'fullchain', 'privkey']:
             fn = '{0}{1}.pem'.format(base_fn, i)
             lfn = '{0}.pem'.format(base_fn, i)
             f = root_path.join('archive', domain, fn)
             if 'fullchain' in fn:
                 cert = certs[domain]['fullchain']
+            elif 'privkey' in fn:
+                cert = certs[domain]['pkey']
             else:
                 cert = certs[domain]['cert']
             f.write(cert)
