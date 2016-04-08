@@ -293,12 +293,19 @@ class Path(object):
             p = self.relative_path
             new_obj.path = os.path.join(root_path, p)
         return new_obj
-    def get_diff(self, other, reverse=False):
+    def get_diff(self, other, other_name=None):
+        if self.parent is None:
+            if self.name is None:
+                self.root.name = str(id(self.root))
+            if other.name is None:
+                other.root.name = str(id(other.root))
+        if other_name is None:
+            other_name = other.name
         d = {}
         if self == other:
             diff = {}
         else:
-            diff = self._get_diff(other)
+            diff = self._get_diff(other, other_name)
         if diff:
             d[self.relative_path] = diff
         for key, child in self.children.items():
@@ -306,32 +313,27 @@ class Path(object):
                 other_child = None
             else:
                 other_child = other.children.get(key)
-            _d = child.get_diff(other_child, reverse=reverse)
+            _d = child.get_diff(other_child, other_name)
             if len(_d):
                 d.update(_d)
         if other is not None:
             for key, other_child in other.children.items():
                 if key in self.children:
                     continue
-                _d = other_child.get_diff(None, reverse=True)
+                _d = other_child.get_diff(None, self.name)
                 if len(_d):
                     d.update(_d)
         return d
-    def _get_diff(self, other, reverse=False):
-        selfkey = 'self'
-        othkey = 'other'
-        if reverse:
-            selfkey = 'other'
-            othkey = 'self'
+    def _get_diff(self, other, other_name):
         d = {}
         if other is None:
             for key, val in self._serialize().items():
-                d[key] = {selfkey: val, othkey:None}
+                d[key] = {self.name: val, other_name:None}
             return d
         self_p = self.relative_path
         other_p = other.relative_path
         if self_p != other_p:
-            d['relative_path'] = {selfkey:self_p, othkey:other_p}
+            d['relative_path'] = {self.name:self_p, other_name:other_p}
         return d
     def is_equal(self, other, recursive=True):
         """Used to perform equality checking, typically for recursive checks
@@ -440,22 +442,18 @@ class FileObj(FileObjBase):
     File contents are only serialized by default in this class
     """
     serialize_attrs = ['content']
-    def _get_diff(self, other, reverse=False):
-        d = super(FileObj, self)._get_diff(other, reverse)
+    def _get_diff(self, other, other_name):
+        d = super(FileObj, self)._get_diff(other, other_name)
         if other is None:
             return d
-        selfkey = 'self'
-        othkey = 'other'
-        if reverse:
-            selfkey = 'other'
-            othkey = 'self'
         if self.content != other.content:
-            d['content'] = {selfkey:self.content, othkey:other.content}
-            if reverse:
-                args = [other.content.splitlines(), self.content.splitlines()]
-            else:
-                args = [self.content.splitlines(), other.content.splitlines()]
-            diffgen = difflib.unified_diff(*args)
+            d['content'] = {self.name:self.content, other_name:other.content}
+            diffgen = difflib.unified_diff(
+                self.content.splitlines(),
+                other.content.splitlines(),
+                self.name,
+                other_name,
+            )
             d['content']['diff'] = '\n'.join(diffgen)
         return d
     def __eq__(self, other):
@@ -512,19 +510,14 @@ class Link(FileObjBase):
                 os.makedirs(os.path.dirname(l))
             os.mknod(l)
         os.symlink(l, p)
-    def _get_diff(self, other, reverse=False):
-        d = super(Link, self)._get_diff(other, reverse)
+    def _get_diff(self, other, other_name):
+        d = super(Link, self)._get_diff(other, other_name)
         if other is None:
             return d
-        selfkey = 'self'
-        othkey = 'other'
-        if reverse:
-            selfkey = 'other'
-            othkey = 'self'
         if self.linked_path != other.linked_path:
             d['linked_path'] = {
-                selfkey:self.linked_path,
-                othkey:other.linked_path,
+                self.name:self.linked_path,
+                other_name:other.linked_path,
             }
         return d
     def __eq__(self, other):
